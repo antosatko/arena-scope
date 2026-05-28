@@ -1,19 +1,21 @@
 use arena::{Arena, Key};
 
-pub type ScopeKey<Tag> = Key<Tag>;
+pub type ScopeKey = Key<ArenaTag>;
+#[derive(Copy, Clone, Debug, PartialEq, Hash)]
+pub struct ArenaTag;
 
 #[derive(Debug)]
-pub struct ScopeNode<K, V, Tag: Copy = V> {
-    pub parent: Option<ScopeKey<Tag>>,
+pub struct ScopeNode<K, V> {
+    pub parent: Option<ScopeKey>,
     pub values: Vec<(K, V)>,
 }
 
-impl<K, V, Tag: Copy> ScopeNode<K, V, Tag>
+impl<K, V> ScopeNode<K, V>
 where
     K: PartialEq,
 {
     #[inline]
-    pub fn new(parent: Option<ScopeKey<Tag>>) -> Self {
+    pub fn new(parent: Option<ScopeKey>) -> Self {
         Self {
             parent,
             values: Vec::new(),
@@ -35,12 +37,12 @@ where
 }
 
 #[derive(Debug)]
-pub struct ScopeTree<K, V, Tag: Copy> {
-    arena: Arena<ScopeNode<K, V, Tag>, Tag>,
-    current: Option<ScopeKey<Tag>>,
+pub struct ScopeTree<K, V> {
+    arena: Arena<ScopeNode<K, V>, ArenaTag>,
+    current: Option<ScopeKey>,
 }
 
-impl<K, V, Tag: Copy> Default for ScopeTree<K, V, Tag> {
+impl<K, V> Default for ScopeTree<K, V> {
     fn default() -> Self {
         Self {
             arena: Arena::new(),
@@ -49,7 +51,7 @@ impl<K, V, Tag: Copy> Default for ScopeTree<K, V, Tag> {
     }
 }
 
-impl<K, V, Tag: Copy> ScopeTree<K, V, Tag>
+impl<K, V> ScopeTree<K, V>
 where
     K: PartialEq,
 {
@@ -63,12 +65,12 @@ where
     }
 
     #[inline]
-    pub fn current(&self) -> ScopeKey<Tag> {
+    pub fn current(&self) -> ScopeKey {
         unsafe { self.current.unwrap_unchecked() }
     }
 
     #[inline]
-    pub fn push(&mut self) -> ScopeKey<Tag> {
+    pub fn push(&mut self) -> ScopeKey {
         let key = self.arena.push(ScopeNode::new(self.current));
 
         self.current = Some(key);
@@ -77,7 +79,7 @@ where
     }
 
     #[inline]
-    pub fn pop(&mut self) -> ScopeKey<Tag> {
+    pub fn pop(&mut self) -> ScopeKey {
         let current = self.current();
 
         let parent = self.arena.get_unchecked(&current).parent;
@@ -113,12 +115,22 @@ where
     }
 
     #[inline]
-    pub fn snapshot(&self) -> Option<ScopeKey<Tag>> {
+    pub fn snapshot(&self) -> Option<ScopeKey> {
         self.current
     }
 
     #[inline]
-    pub fn restore(&mut self, snapshot: ScopeKey<Tag>) {
+    pub fn restore(&mut self, snapshot: ScopeKey) {
         self.current = Some(snapshot);
+    }
+
+    #[inline]
+    pub fn arena(&mut self) -> &Arena<ScopeNode<K, V>, ArenaTag> {
+        &self.arena
+    }
+
+    #[inline]
+    pub fn node(&mut self, key: &ScopeKey) -> &ScopeNode<K, V> {
+        &self.arena.get_unchecked(key)
     }
 }
