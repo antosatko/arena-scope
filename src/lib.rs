@@ -1,7 +1,12 @@
 use arena::{Arena, Key};
 
+use stack::{Snapshot, SnapshotStack};
+
+pub mod stack;
+
 pub type ScopeKey = Key<ArenaTag>;
-#[derive(Copy, Clone, Debug, PartialEq, Hash)]
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ArenaTag;
 
 #[derive(Debug)]
@@ -39,14 +44,14 @@ where
 #[derive(Debug)]
 pub struct ScopeTree<K, V> {
     arena: Arena<ScopeNode<K, V>, ArenaTag>,
-    current: Option<ScopeKey>,
+    stack: SnapshotStack<ScopeKey>,
 }
 
 impl<K, V> Default for ScopeTree<K, V> {
     fn default() -> Self {
         Self {
             arena: Arena::new(),
-            current: None,
+            stack: SnapshotStack::default(),
         }
     }
 }
@@ -56,50 +61,42 @@ where
     K: PartialEq,
 {
     #[inline]
-    pub fn init(&mut self) {
-        debug_assert!(self.current.is_none());
-
+    pub fn init(&mut self) -> ScopeKey {
         let root = self.arena.push(ScopeNode::new(None));
 
-        self.current = Some(root);
+        self.stack.push(root);
+
+        root
     }
 
     #[inline]
     pub fn current(&self) -> ScopeKey {
-        unsafe { self.current.unwrap_unchecked() }
+        *self.stack.current()
     }
 
     #[inline]
     pub fn push(&mut self) -> ScopeKey {
-        let key = self.arena.push(ScopeNode::new(self.current));
+        let key = self.arena.push(ScopeNode::new(Some(*self.stack.current())));
 
-        self.current = Some(key);
+        self.stack.push(key);
 
         key
     }
 
     #[inline]
     pub fn pop(&mut self) -> ScopeKey {
-        let current = self.current();
-
-        let parent = self.arena.get_unchecked(&current).parent;
-
-        debug_assert!(parent.is_some());
-
-        self.current = parent;
-
-        current
+        self.stack.pop()
     }
 
     #[inline]
     pub fn insert(&mut self, key: K, value: V) {
-        let current = self.current();
+        let current = *self.stack.current();
 
         self.arena.get_mut_unchecked(&current).insert(key, value);
     }
 
     pub fn get(&self, key: &K) -> Option<&V> {
-        let mut current = self.current;
+        let mut current = Some(*self.stack.current());
 
         while let Some(scope) = current {
             let node = self.arena.get_unchecked(&scope);
@@ -115,22 +112,158 @@ where
     }
 
     #[inline]
-    pub fn snapshot(&self) -> Option<ScopeKey> {
-        self.current
+    pub fn snapshot(&self) -> Option<Snapshot> {
+        self.stack.snapshot()
     }
 
     #[inline]
-    pub fn restore(&mut self, snapshot: ScopeKey) {
-        self.current = Some(snapshot);
+    pub fn restore(&mut self, snapshot: Snapshot) {
+        self.stack.restore(snapshot);
     }
 
     #[inline]
-    pub fn arena(&mut self) -> &Arena<ScopeNode<K, V>, ArenaTag> {
+    pub fn arena(&self) -> &Arena<ScopeNode<K, V>, ArenaTag> {
         &self.arena
     }
 
     #[inline]
-    pub fn node(&mut self, key: &ScopeKey) -> &ScopeNode<K, V> {
-        &self.arena.get_unchecked(key)
+    pub fn node(&self, key: &ScopeKey) -> &ScopeNode<K, V> {
+        self.arena.get_unchecked(key)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lookup_in_current_scope() {
+        let mut scopes = ScopeTree::<&str, i32>::default();
+
+        scopes.init();
+
+        scopes.insert("x", 42);
+
+        assert_eq!(scopes.get(&"x"), Some(&42));
+    }
+
+    #[test]
+    fn lookup_in_parent_scope() {
+        let mut scopes = ScopeTree::<&str, i32>::default();
+
+        scopes.init();
+
+        scopes.insert("x", 1);
+
+        scopes.push();
+
+        assert_eq!(scopes.get(&"x"), Some(&1));
+    }
+
+    #[test]
+    fn shadowing() {
+        let mut scopes = ScopeTree::<&str, i32>::default();
+
+        scopes.init();
+
+        scopes.insert("x", 1);
+
+        scopes.push();
+
+        scopes.insert("x", 2);
+
+        assert_eq!(scopes.get(&"x"), Some(&2));
+    }
+
+    #[test]
+    fn pop_restores_parent_lookup() {
+        let mut scopes = ScopeTree::<&str, i32>::default();
+
+        scopes.init();
+
+        scopes.insert("x", 1);
+
+        scopes.push();
+        scopes.insert("x", 2);
+
+        assert_eq!(scopes.get(&"x"), Some(&2));
+
+        scopes.pop();
+
+        assert_eq!(scopes.get(&"x"), Some(&1));
+    }
+
+    #[test]
+    fn snapshot_restore() {
+        let mut scopes = ScopeTree::<&str, i32>::default();
+
+        scopes.init();
+
+        scopes.insert("a", 1);
+
+        let snap = scopes.snapshot().unwrap();
+
+        scopes.push();
+        scopes.insert("b", 2);
+
+        assert_eq!(scopes.get(&"b"), Some(&2));
+
+        scopes.restore(snap);
+
+        assert_eq!(scopes.get(&"a"), Some(&1));
+        assert_eq!(scopes.get(&"b"), None);
+    }
+
+    #[test]
+    fn deep_scope_lookup() {
+        let mut scopes = ScopeTree::<&str, i32>::default();
+
+        scopes.init();
+
+        scopes.insert("root", 0);
+
+        scopes.push();
+        scopes.insert("a", 1);
+
+        scopes.push();
+        scopes.insert("b", 2);
+
+        scopes.push();
+        scopes.insert("c", 3);
+
+        assert_eq!(scopes.get(&"root"), Some(&0));
+        assert_eq!(scopes.get(&"a"), Some(&1));
+        assert_eq!(scopes.get(&"b"), Some(&2));
+        assert_eq!(scopes.get(&"c"), Some(&3));
+    }
+
+    #[test]
+    fn snapshot_backtracking() {
+        let mut scopes = ScopeTree::<&str, i32>::default();
+
+        scopes.init();
+
+        let root = scopes.snapshot().unwrap();
+
+        scopes.push();
+        scopes.insert("x", 1);
+
+        let branch = scopes.snapshot().unwrap();
+
+        scopes.push();
+        scopes.insert("y", 2);
+
+        assert_eq!(scopes.get(&"x"), Some(&1));
+        assert_eq!(scopes.get(&"y"), Some(&2));
+
+        scopes.restore(branch);
+
+        assert_eq!(scopes.get(&"x"), Some(&1));
+        assert_eq!(scopes.get(&"y"), None);
+
+        scopes.restore(root);
+
+        assert_eq!(scopes.get(&"x"), None);
+        assert_eq!(scopes.get(&"y"), None);
     }
 }
