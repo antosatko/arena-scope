@@ -74,9 +74,27 @@ impl<T> Stack<T> {
     }
 
     #[inline]
-    pub fn peek(&self) -> Option<&T> {
+    pub fn get(&self) -> Option<&T> {
         let current = self.top?;
         Some(&self.arena.get_unchecked(&current).value)
+    }
+
+    #[inline]
+    pub fn get_mut(&mut self) -> Option<&mut T> {
+        let current = self.top?;
+        Some(&mut self.arena.get_mut_unchecked(&current).value)
+    }
+
+    #[inline]
+    pub fn get_unchecked(&self) -> &T {
+        let current = self.top.unwrap();
+        &self.arena.get_unchecked(&current).value
+    }
+
+    #[inline]
+    pub fn get_mut_unchecked(&mut self) -> &mut T {
+        let current = self.top.unwrap();
+        &mut self.arena.get_mut_unchecked(&current).value
     }
 
     #[inline]
