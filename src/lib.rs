@@ -1,5 +1,7 @@
 use arena::{Arena, Key};
 
+pub mod stack;
+
 pub type ScopeKey = Key<ArenaTag>;
 #[derive(Copy, Clone, Debug, PartialEq, Hash)]
 pub struct ArenaTag;
