@@ -5,7 +5,7 @@ pub type StackKey = Key<ArenaTag>;
 #[derive(Copy, Clone, Debug, PartialEq, Hash)]
 pub struct ArenaTag;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StackNode<T> {
     pub parent: Option<StackKey>,
     pub value: T,
@@ -18,7 +18,7 @@ impl<T> StackNode<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Stack<T> {
     arena: Arena<StackNode<T>, ArenaTag>,
     top: Option<StackKey>,
