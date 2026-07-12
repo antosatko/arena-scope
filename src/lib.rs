@@ -17,6 +17,7 @@ where
     K: PartialEq,
 {
     #[inline]
+    #[track_caller]
     pub fn new(parent: Option<ScopeKey>) -> Self {
         Self {
             parent,
@@ -25,11 +26,13 @@ where
     }
 
     #[inline]
+    #[track_caller]
     pub fn insert(&mut self, key: K, value: V) {
         self.values.push((key, value));
     }
 
     #[inline]
+    #[track_caller]
     pub fn get(&self, key: &K) -> Option<&V> {
         self.values
             .iter()
@@ -58,6 +61,7 @@ where
     K: PartialEq,
 {
     #[inline]
+    #[track_caller]
     pub fn init(&mut self) {
         debug_assert!(self.current.is_none());
 
@@ -67,11 +71,13 @@ where
     }
 
     #[inline]
+    #[track_caller]
     pub fn current(&self) -> ScopeKey {
         unsafe { self.current.unwrap_unchecked() }
     }
 
     #[inline]
+    #[track_caller]
     pub fn push(&mut self) -> ScopeKey {
         let key = self.arena.push(ScopeNode::new(self.current));
 
@@ -81,6 +87,7 @@ where
     }
 
     #[inline]
+    #[track_caller]
     pub fn pop(&mut self) -> ScopeKey {
         let current = self.current();
 
@@ -94,6 +101,7 @@ where
     }
 
     #[inline]
+    #[track_caller]
     pub fn insert(&mut self, key: K, value: V) {
         let current = self.current();
 
@@ -117,21 +125,25 @@ where
     }
 
     #[inline]
+    #[track_caller]
     pub fn snapshot(&self) -> Option<ScopeKey> {
         self.current
     }
 
     #[inline]
+    #[track_caller]
     pub fn restore(&mut self, snapshot: ScopeKey) {
         self.current = Some(snapshot);
     }
 
     #[inline]
+    #[track_caller]
     pub fn arena(&mut self) -> &Arena<ScopeNode<K, V>, ArenaTag> {
         &self.arena
     }
 
     #[inline]
+    #[track_caller]
     pub fn node(&mut self, key: &ScopeKey) -> &ScopeNode<K, V> {
         &self.arena.get_unchecked(key)
     }
