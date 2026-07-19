@@ -3,7 +3,7 @@ use arena::{Arena, Key};
 pub mod stack;
 
 pub type ScopeKey = Key<ArenaTag>;
-#[derive(Copy, Clone, Debug, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
 pub struct ArenaTag;
 
 #[derive(Debug)]
