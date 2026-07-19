@@ -2,7 +2,7 @@ use arena::{Arena, Key};
 
 pub type StackKey = Key<ArenaTag>;
 
-#[derive(Copy, Clone, Debug, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
 pub struct ArenaTag;
 
 #[derive(Debug, Clone)]
