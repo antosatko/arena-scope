@@ -64,18 +64,12 @@ impl<T> Stack<T> {
 
     #[inline]
     #[track_caller]
-    pub fn pop(&mut self) -> Option<T>
-    where
-        T: Clone,
-    {
+    pub fn pop(&mut self) -> Option<StackKey> {
         let current = self.top?;
 
         let node = self.arena.get_unchecked(&current);
-        let value = node.value.clone();
-
         self.top = node.parent;
-
-        Some(value)
+        Some(current)
     }
 
     #[inline]
