@@ -135,4 +135,10 @@ impl<T> Stack<T> {
     pub fn arena(&self) -> &Arena<StackNode<T>, ArenaTag> {
         &self.arena
     }
+
+    #[inline]
+    #[track_caller]
+    pub fn arena_mut(&mut self) -> &mut Arena<StackNode<T>, ArenaTag> {
+        &mut self.arena
+    }
 }
